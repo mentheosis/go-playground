@@ -20,7 +20,7 @@ func main() {
 		log.Fatal(err)
 	}
 	// dbPath := "db/kw-beacon.db" // empty local one
-	dbPath := dirname + "/.eth2/beaconchaindata/beaconchain.db" // empty local one
+	dbPath := dirname + "/.eth2/beaconchaindata/beaconchain.db" // prysm db location
 
 	fmt.Println("dirname", dirname+"/test/test")
 
@@ -43,23 +43,6 @@ func main() {
 	listBuckets(db)
 	readBeaconData(db)
 	//readSomeData(db)
-	/*
-		db.View(func(tx *bolt.Tx) error {
-			// Assume our events bucket exists and has RFC3339 encoded time keys.
-			c := tx.Bucket([]byte("Events")).Cursor()
-
-			// Our time range spans the 90's decade.
-			min := []byte("1990-01-01T00:00:00Z")
-			max := []byte("2000-01-01T00:00:00Z")
-
-			// Iterate over the 90's.
-			for k, v := c.Seek(min); k != nil && bytes.Compare(k, max) <= 0; k, v = c.Next() {
-				fmt.Printf("%s: %s\n", k, v)
-			}
-
-			return nil
-		})
-	*/
 
 	done := <-exitCh
 	fmt.Println("Hello, World!", done)
