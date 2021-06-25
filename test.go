@@ -84,7 +84,7 @@ func readBeaconData(db *bolt.DB) {
 			if err := decode(ctx, v, block); err != nil {
 				print("\ndecode error")
 			}
-			print("\nUnmarshaled block: ", block, "\nEncoded block: ", data)
+			print("\nUnmarshaled block: ", block, "\nEncoded block: ", data, "\n")
 
 			// test := proto.Unmarshal(data, block)
 			//fmt.Printf("\n\nRaw blockType and data: %v, %T", block, v)
