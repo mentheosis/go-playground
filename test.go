@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
@@ -9,9 +10,11 @@ import (
 	"time"
 
 	"github.com/boltdb/bolt"
+	fastssz "github.com/ferranbt/fastssz"
 	"github.com/golang/snappy"
 	ethpb "github.com/prysmaticlabs/prysm/proto/eth/v1alpha1"
-	// "google.golang.org/protobuf/proto"
+
+	"google.golang.org/protobuf/proto"
 )
 
 func main() {
@@ -21,8 +24,6 @@ func main() {
 	}
 	// dbPath := "db/kw-beacon.db" // empty local one
 	dbPath := dirname + "/.eth2/beaconchaindata/beaconchain.db" // prysm db location
-
-	fmt.Println("dirname", dirname+"/test/test")
 
 	// Open the my.db data file in a nearby directory.
 	// It will be created if it doesn't exist.
@@ -40,12 +41,26 @@ func main() {
 	// insertSomeData(db)
 	// <-readCh // use the readCh to block and wait until ready
 
-	listBuckets(db)
+	//listBuckets(db)
 	readBeaconData(db)
 	//readSomeData(db)
 
 	done := <-exitCh
 	fmt.Println("Hello, World!", done)
+}
+
+func decode(ctx context.Context, data []byte, dst proto.Message) error {
+	//ctx, span := trace.StartSpan(ctx, "BeaconDB.decode")
+	//defer span.End()
+
+	data, err := snappy.Decode(nil, data)
+	if err != nil {
+		return err
+	}
+	if isSSZStorageFormat(dst) {
+		return dst.(fastssz.Unmarshaler).UnmarshalSSZ(data)
+	}
+	return proto.Unmarshal(data, dst)
 }
 
 func readBeaconData(db *bolt.DB) {
@@ -64,11 +79,18 @@ func readBeaconData(db *bolt.DB) {
 				print("\n\ndecode error")
 				return err
 			}
+
+			var ctx context.Context
+			if err := decode(ctx, v, block); err != nil {
+				print("\ndecode error")
+			}
+			print("\nUnmarshaled block: ", block, "\nEncoded block: ", data)
+
 			// test := proto.Unmarshal(data, block)
-			fmt.Printf("\n\nRaw blockType and data: %v, %T", block, v)
-			// test := block.UnmarshalSSZ(data)
-			test := block.(fastssz.Unmarshaler).UnmarshalSSZ(data)
-			print("\nUnmarshaled block: ", test, "\nEncoded block: ", data)
+			//fmt.Printf("\n\nRaw blockType and data: %v, %T", block, v)
+			//test := block.UnmarshalSSZ(data)
+			//test := block.(fastssz.Unmarshaler).UnmarshalSSZ(data)
+			//print("\nUnmarshaled block: ", test, "\nEncoded block: ", data)
 
 			//var val map[string]interface{}
 			//json.Unmarshal(test, val)
@@ -188,7 +210,7 @@ func createBuckets(tx *bolt.Tx, buckets ...[]byte) error {
 }
 
 func monitorBoltStats(db *bolt.DB, exitCh chan bool) {
-	fmt.Println("monitoring bolt stats..")
+	fmt.Println("\nmonitoring bolt stats..")
 	// Grab the initial stats.
 	prev := db.Stats()
 
@@ -212,6 +234,32 @@ func monitorBoltStats(db *bolt.DB, exitCh chan bool) {
 
 		// Save stats for the next loop.
 		prev = stats
+	}
+}
+
+// isSSZStorageFormat returns true if the object type should be saved in SSZ encoded format.
+func isSSZStorageFormat(obj interface{}) bool {
+	switch obj.(type) {
+	//case *pb.BeaconState:
+	//	return true
+	case *ethpb.SignedBeaconBlock:
+		return true
+	case *ethpb.SignedAggregateAttestationAndProof:
+		return true
+	case *ethpb.BeaconBlock:
+		return true
+	case *ethpb.Attestation:
+		return true
+	case *ethpb.Deposit:
+		return true
+	case *ethpb.AttesterSlashing:
+		return true
+	case *ethpb.ProposerSlashing:
+		return true
+	case *ethpb.VoluntaryExit:
+		return true
+	default:
+		return false
 	}
 }
 
